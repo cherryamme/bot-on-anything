@@ -13,6 +13,8 @@ user_session = dict()
 class ChatGPTModel(Model):
     def __init__(self):
         openai.api_key = model_conf(const.OPEN_AI).get('api_key')
+        openai.api_type = model_conf(const.OPEN_AI).get('api_type')
+        openai.api_version = model_conf(const.OPEN_AI).get('api_version')
         api_base = model_conf(const.OPEN_AI).get('api_base')
         if api_base:
             openai.api_base = api_base
@@ -48,7 +50,7 @@ class ChatGPTModel(Model):
     def reply_text(self, query, user_id, retry_count=0):
         try:
             response = openai.ChatCompletion.create(
-                model= model_conf(const.OPEN_AI).get("model") or "gpt-3.5-turbo",  # 对话模型的名称
+                engine= model_conf(const.OPEN_AI).get("deployment") or "gpt-3.5-turbo",  # 对话模型的名称
                 messages=query,
                 temperature=model_conf(const.OPEN_AI).get("temperature", 0.75),  # 熵值，在[0,1]之间，越大表示选取的候选词越随机，回复越具有不确定性，建议和top_p参数二选一使用，创意性任务越大越好，精确性任务越小越好
                 #max_tokens=4096,  # 回复最大的字符数，为输入和输出的总数
@@ -90,10 +92,12 @@ class ChatGPTModel(Model):
 
     async def reply_text_stream(self, query,  context, retry_count=0):
         try:
+            engine=model_conf(const.OPEN_AI).get("engine")
+            print(f"{engine}")
             user_id=context['from_user_id']
             new_query = Session.build_session_query(query, user_id)
             res = openai.ChatCompletion.create(
-                model= model_conf(const.OPEN_AI).get("model") or "gpt-3.5-turbo",  # 对话模型的名称
+                engine= model_conf(const.OPEN_AI).get("deployment") or "gpt-3.5-turbo",  # 对话模型的名称
                 messages=new_query,
                 temperature=model_conf(const.OPEN_AI).get("temperature", 0.75),  # 熵值，在[0,1]之间，越大表示选取的候选词越随机，回复越具有不确定性，建议和top_p参数二选一使用，创意性任务越大越好，精确性任务越小越好
                 #max_tokens=4096,  # 回复最大的字符数，为输入和输出的总数
@@ -213,4 +217,3 @@ class Session(object):
     @staticmethod
     def clear_session(user_id):
         user_session[user_id] = []
-
