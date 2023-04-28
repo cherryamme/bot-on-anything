@@ -130,7 +130,7 @@ class WechatChannel(Channel):
         return None
 
     def send(self, msg, receiver):
-        logger.info('[WX] sendMsg={}, receiver={}'.format(msg, receiver))
+        logger.debug('[WX] sendMsg={}, receiver={}'.format(msg, receiver))
         itchat.send(msg, toUserName=receiver)
 
     def _do_send(self, query, reply_user_id):

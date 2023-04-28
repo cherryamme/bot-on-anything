@@ -10,14 +10,16 @@ import time,json
 import uuid
 
 user_session = dict()
-
+user_model = dict()
 # OpenAI对话模型API (可用)
 class ChatBGIModel(Model):
     def __init__(self):
-        openai.api_key = model_conf(const.OPEN_AI).get('api_key')
-        openai.api_type = model_conf(const.OPEN_AI).get('api_type')
-        openai.api_version = model_conf(const.OPEN_AI).get('api_version')
-        api_base = model_conf(const.OPEN_AI).get('api_base')
+        openai.api_key = model_conf(const.CHATBGI).get('api_key')
+        openai.api_type = model_conf(const.CHATBGI).get('api_type')
+        openai.api_version = model_conf(const.CHATBGI).get('api_version')
+        api_base = model_conf(const.CHATBGI).get('api_base')
+        self.model = model_conf(const.CHATBGI).get('model')
+        self.function_list = model_conf(const.CHATBGI).get('function_list')
         if api_base:
             openai.api_base = api_base
         proxy = model_conf(const.OPEN_AI).get('proxy')
@@ -27,22 +29,30 @@ class ChatBGIModel(Model):
             api_base, proxy))
     def reply(self, query, context=None):
         # acquire reply content
+        function_list = self.function_list
         if not context or not context.get('type') or context.get('type') == 'TEXT':
             log.info("[CHATGPT] query={}".format(query))
             from_user_id = context['from_user_id']
+            model = Session.return_model(from_user_id,self.model)
             # breakpoint()
+
+            ###NOTE 指令收集
             clear_memory_commands = common_conf_val('clear_memory_commands', ['#清除记忆'])
             change_gpt_mode = common_conf_val('change_gpt_mode')
             if query in change_gpt_mode.keys():
                 model=change_gpt_mode[query]
-                print(f"model:{model}")
+                Session.change_model(from_user_id,model)
+                return f"切换模型:{model}"
             if query in clear_memory_commands:
                 Session.clear_session(from_user_id)
                 return '记忆已清除'
+            if query.startswith("SEARCH"):
+                function_list = model_conf(const.CHATBGI).get('search_function_list')
+                query = query.replace("SEARCH", "")
             conversation_id = Session.return_user_session(from_user_id)
             # conversation_id=Session
-            new_query = json.dumps({"message":query, "conversation_id":conversation_id,"model":'gpt-3.5-turbo',"function_list": ["BGI_Database"]})
-            log.debug("[CHATGPT] session query={}".format(new_query))
+            new_query = json.dumps({"message":query, "conversation_id":conversation_id,"model":model,"function_list": function_list})
+            log.info("[CHATGPT] session query={}".format(new_query))
 
             # if context.get('stream'):
             #     # reply in stream
@@ -56,7 +66,8 @@ class ChatBGIModel(Model):
             return self.create_img(query, 0)
 
     def reply_text(self, query, user_id, retry_count=0):
-        #TODO  更改这个函数，使其能够使用websockets
+        #DONE  更改这个函数，使其能够使用websockets
+        #TODO  更改这个函数，使其能够将用户分流
         ws = websocket.WebSocket()
         ws.connect(url="ws://localhost:8000/conv", cookie="user_auth=wechat")
         # 将查询发送到 WebSocket 服务器
@@ -165,3 +176,10 @@ class Session(object):
     @staticmethod
     def clear_session(user_id):
         user_session[user_id] = None
+    @staticmethod
+    def change_model(user_id,model_name):
+        user_model[user_id] = model_name
+    @staticmethod
+    def return_model(user_id,default_model):
+        model = user_model.get(user_id,default_model)
+        return model
