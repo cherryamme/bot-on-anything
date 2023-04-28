@@ -28,6 +28,7 @@ class ChatBGIModel(Model):
         log.info("[CHATGPT] api_base={} proxy={}".format(
             api_base, proxy))
     def reply(self, query, context=None):
+        query = query.strip()
         # acquire reply content
         function_list = self.function_list
         if not context or not context.get('type') or context.get('type') == 'TEXT':
@@ -53,18 +54,20 @@ class ChatBGIModel(Model):
             # if query.startswith(tuple(search_command)):
             #     function_list = model_conf(const.CHATBGI).get('search_function_list')
             #     query = query.replace(search_command, "")
-
-            query,function_list = is_internet_search(query, function_list, search_command)
-
-            if query.startswith("#"):
+            # query,function_list = is_internet_search(query, function_list, search_command)
+            ##NOTE 搜索不做替换
+            if query.startswith(tuple(search_command)):
+                function_list = model_conf(const.CHATBGI).get('search_function_list')
+            elif query.startswith("#") and len(query) < 10:
                 return f"指令无效,请使用 {help_command} 查看帮助"
             
             #############################
 
             conversation_id = Session.return_user_session(from_user_id)
             # conversation_id=Session
-            new_query = json.dumps({"message":query, "conversation_id":conversation_id,"model":model,"function_list": function_list})
-            log.info("[CHATGPT] session query={}".format(new_query))
+            query_json={"message":query, "conversation_id":conversation_id,"model":model,"function_list": function_list}
+            new_query = json.dumps(query_json)
+            log.info("[CHATGPT] session query={}".format(query_json))
 
             # if context.get('stream'):
             #     # reply in stream
@@ -176,16 +179,6 @@ class ChatBGIModel(Model):
         except Exception as e:
             log.exception(e)
             return None
-        
-
-
-def is_internet_search(string, function_list,prefixes):
-    for prefix in prefixes:
-        if string.startswith(prefix):
-            function_list = model_conf(const.CHATBGI).get('search_function_list')
-            string = string[len(prefix):]
-            return string,function_list
-    return string,function_list
 
 class Session(object):
     @staticmethod

@@ -106,6 +106,7 @@ class WechatChannel(Channel):
             return None
         origin_content = msg['Content']
         content = msg['Content'].replace(f"@{msg['User']['Self']['NickName']}","")
+        content = content.replace(f"\u2005","")
 
         match_prefix = (msg['IsAt'] and not channel_conf_val(const.WECHAT, "group_at_off", False)) or self.check_prefix(origin_content, channel_conf_val(const.WECHAT, 'group_chat_prefix')) or self.check_contain(origin_content, channel_conf_val(const.WECHAT, 'group_chat_keyword'))
 
