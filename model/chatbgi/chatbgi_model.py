@@ -39,6 +39,7 @@ class ChatBGIModel(Model):
             ###NOTE 指令收集
             clear_memory_commands = common_conf_val('clear_memory_commands', ['#清除记忆'])
             change_gpt_mode = common_conf_val('change_gpt_mode')
+            search_command = common_conf_val('internet_search','SEARCH')
             if query in change_gpt_mode.keys():
                 model=change_gpt_mode[query]
                 Session.change_model(from_user_id,model)
@@ -46,9 +47,9 @@ class ChatBGIModel(Model):
             if query in clear_memory_commands:
                 Session.clear_session(from_user_id)
                 return '记忆已清除'
-            if query.startswith("SEARCH"):
+            if query.startswith(search_command):
                 function_list = model_conf(const.CHATBGI).get('search_function_list')
-                query = query.replace("SEARCH", "")
+                query = query.replace(search_command, "")
             conversation_id = Session.return_user_session(from_user_id)
             # conversation_id=Session
             new_query = json.dumps({"message":query, "conversation_id":conversation_id,"model":model,"function_list": function_list})
