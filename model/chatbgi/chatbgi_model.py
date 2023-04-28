@@ -40,7 +40,7 @@ class ChatBGIModel(Model):
             help_command = common_conf_val('help_command', '#HELP')
             clear_memory_commands = common_conf_val('clear_memory_commands', ['#清除记忆'])
             change_gpt_mode = common_conf_val('change_gpt_mode',{"#GPT3":"gpt-3.5-turbo","#GPT4":"gpt-4"})
-            search_command = common_conf_val('internet_search','#SEARCH')
+            search_command = common_conf_val('internet_search',['#SEARCH'])
             if query == help_command:
                 return f"# 指令列表\n清空会话：{clear_memory_commands}\n切换模型：{change_gpt_mode}\n联网搜索：{search_command}\n帮助：{help_command}"
             if query in change_gpt_mode.keys():
@@ -50,9 +50,12 @@ class ChatBGIModel(Model):
             if query in clear_memory_commands:
                 Session.clear_session(from_user_id)
                 return '记忆已清除'
-            if query.startswith(search_command):
-                function_list = model_conf(const.CHATBGI).get('search_function_list')
-                query = query.replace(search_command, "")
+            # if query.startswith(tuple(search_command)):
+            #     function_list = model_conf(const.CHATBGI).get('search_function_list')
+            #     query = query.replace(search_command, "")
+
+            query,function_list = is_internet_search(query, function_list, search_command)
+
             if query.startswith("#"):
                 return f"指令无效,请使用 {help_command} 查看帮助"
             
@@ -173,7 +176,16 @@ class ChatBGIModel(Model):
         except Exception as e:
             log.exception(e)
             return None
+        
 
+
+def is_internet_search(string, function_list,prefixes):
+    for prefix in prefixes:
+        if string.startswith(prefix):
+            function_list = model_conf(const.CHATBGI).get('search_function_list')
+            string = string[len(prefix):]
+            return string,function_list
+    return string,function_list
 
 class Session(object):
     @staticmethod
