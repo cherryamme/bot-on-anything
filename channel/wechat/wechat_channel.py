@@ -60,7 +60,7 @@ class WechatChannel(Channel):
         logger.debug("[WX]receive msg: " + json.dumps(msg, ensure_ascii=False))
         from_user_id = msg['FromUserName']
         to_user_id = msg['ToUserName']              # 接收人id
-        other_user_id = msg['User']['UserName']     # 对手方id
+        other_user_id = msg['User'].get('UserName', msg['User'].get('userName'))       # 对手方id
         create_time = msg['CreateTime']             # 消息时间
         content = msg['Text']
 
@@ -105,15 +105,7 @@ class WechatChannel(Channel):
         if not group_name:
             return None
         origin_content = msg['Content']
-        content = msg['Content']
-        content_list = content.split(' ', 1)
-        context_special_list = content.split('\u2005', 1)
-        if len(context_special_list) == 2:
-            content = context_special_list[1]
-        elif len(content_list) == 2:
-            content = content_list[1]
-
-        
+        content = msg['Content'].replace(f"@{msg['User']['Self']['NickName']}","")
 
         match_prefix = (msg['IsAt'] and not channel_conf_val(const.WECHAT, "group_at_off", False)) or self.check_prefix(origin_content, channel_conf_val(const.WECHAT, 'group_chat_prefix')) or self.check_contain(origin_content, channel_conf_val(const.WECHAT, 'group_chat_keyword'))
 
@@ -164,25 +156,6 @@ class WechatChannel(Channel):
             if not isinstance(img_urls, list):
                 self.send(channel_conf_val(const.WECHAT, "single_chat_reply_prefix") + img_urls, reply_user_id)
                 return
-#这段代码是用于从给定的图片网址列表（img_urls）中下载并发送图片到指定的接收者（reply_user_id）。
-
-# 代码解释如下：
-
-# for url in img_urls:：遍历图片网址列表（img_urls）中的每个网址（url）。
-
-# pic_res = requests.get(url, stream=True): 使用requests库的get方法下载图片。stream=True表示以流的方式进行下载，这样可以在下载过程中处理数据，而不是一次性下载完整个文件。
-
-# image_storage = io.BytesIO(): 创建一个BytesIO对象，它是一个在内存中存储字节的缓冲区，用于临时存储下载的图片数据。
-
-# for block in pic_res.iter_content(1024):：通过iter_content方法以块的形式读取下载的图片数据，每次读取1024字节。
-
-# image_storage.write(block): 将读取到的图片数据块（block）写入到image_storage中。
-
-# image_storage.seek(0): 将image_storage的读写指针移动到缓冲区的开头，以便从头开始读取图片数据。
-
-# logger.info('[WX] sendImage, receiver={}'.format(reply_user_id)): 使用logger记录一条日志，表示正在发送图片给指定的接收者（reply_user_id）。
-
-# itchat.send_image(image_storage, reply_user_id): 使用itchat库的send_image方法将图片（image_storage）发送给指定的接收者（reply_user_id）。
             for url in img_urls:
             # 图片下载
                 pic_res = requests.get(url, stream=True)
@@ -212,7 +185,7 @@ class WechatChannel(Channel):
                 'channel': self, 'context': context, 'reply': reply, "args": e_context["args"]}))
             reply = e_context['reply']
             if reply:
-                reply = '@' + msg['ActualNickName'] + ' ' + reply.strip()
+                reply = '@' + msg['ActualNickName'] + ' ' + f"{query}\n-------------------------------\n{reply.strip()}"
                 self.send(channel_conf_val(const.WECHAT, "group_chat_reply_prefix", "") + reply, msg['User']['UserName'])
 
     def check_prefix(self, content, prefix_list):
