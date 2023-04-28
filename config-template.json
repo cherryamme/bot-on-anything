@@ -1,10 +1,30 @@
 {
   "model": {
-    "type" : "chatgpt",
-    "openai": {
-      "api_key": "YOUR API KEY",
+    "type" : "chatbgi",
+    "chatbgi":{
+      "api_key": "",
+      "api_version":"",
+      "api_type":"",
       "api_base": "",
-      "model": "gpt-3.5-turbo",
+      "model": "",
+      "function_list": ["BGI_Database"],
+      "search_function_list": ["BGI_Database","Internet"],
+      "deployment": "bgioaigpt",
+      "proxy": "",
+      "conversation_max_tokens": 1000,
+      "temperature":0.75,
+      "top_p":0.7,
+      "frequency_penalty":0.0,
+      "presence_penalty":1.0,
+      "character_desc": ""
+    },
+    "openai": {
+      "api_key": "",
+      "api_version":"",
+      "api_type":"",
+      "api_base": "",
+      "model": "",
+      "deployment": "",
       "proxy": "",
       "conversation_max_tokens": 1000,
       "temperature":0.75,
@@ -27,11 +47,11 @@
     }
   },
   "channel": {
-    "type": ["terminal"],
-    "single_chat_prefix": ["bot", "@bot"],
-    "single_chat_reply_prefix": "[bot] ",
+    "type": ["wechat"],
+    "single_chat_prefix": [""],
+    "single_chat_reply_prefix": "",
     "group_chat_prefix": ["@bot"],
-    "group_name_white_list": ["ChatGPT测试群"],
+    "group_name_white_list": ["ChatBGI Dev"],
     "image_create_prefix": ["画", "看", "找一张"],
 
     "terminal": {
@@ -101,7 +121,9 @@
     }
   },
   "common": {
-    "clear_memory_commands": ["#清除记忆"],
+    "clear_memory_commands":  ["清空会话", "清空对话", "下个问题"],
+    "internet_search":["search"],
+    "change_gpt_mode": {"#GPT3":"gpt-35-turbo","#GPT4":"gpt-4"},
     "certificate_file": "xxx"
   }
 }
