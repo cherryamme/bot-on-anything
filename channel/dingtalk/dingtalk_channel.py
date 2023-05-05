@@ -6,7 +6,7 @@ import base64
 import time
 import requests
 from urllib.parse import quote_plus
-from common import log
+from common.log import logger as log
 from flask import Flask, request, render_template, make_response
 from common import const
 from common import functions
@@ -19,51 +19,16 @@ class DingTalkHandler():
     def __init__(self, config):
         self.dingtalk_key = config.get('dingtalk_key')
         self.dingtalk_secret = config.get('dingtalk_secret')
-        self.dingtalk_token = config.get('dingtalk_token')
-        self.dingtalk_post_token = config.get('dingtalk_post_token')
-        self.access_token = None
-        log.info("[DingTalk] AppKey={}, AppSecret={} Token={} post Token={}".format(self.dingtalk_key, self.dingtalk_secret, self.dingtalk_token, self.dingtalk_post_token))
 
-    def notify_dingtalk_webhook(self, data):
-        timestamp = round(time.time() * 1000)
-        secret_enc = bytes(self.dingtalk_secret, encoding='utf-8')
-        string_to_sign = '{}\n{}'.format(timestamp, self.dingtalk_secret)
-        string_to_sign_enc = bytes(string_to_sign, encoding='utf-8')
-        hmac_code = hmac.new(secret_enc, string_to_sign_enc,
-                             digestmod=hashlib.sha256).digest()
-        sign = quote_plus(base64.b64encode(hmac_code))
-
-        notify_url = f"https://oapi.dingtalk.com/robot/send?access_token={self.dingtalk_token}&timestamp={timestamp}&sign={sign}"
+    def notify_dingtalk_webhook(self,webhook_url, data):
         try:
-            log.info("[DingTalk] url={}".format(str(notify_url)))
-            r = requests.post(notify_url, json=data)
+
+            r = requests.post(webhook_url, json=data)
             reply = r.json()
             log.info("[DingTalk] reply={}".format(str(reply)))
         except Exception as e:
             log.error(e)
 
-    def get_token_internal(self):
-        access_token_url = 'https://api.dingtalk.com/v1.0/oauth2/accessToken'
-        try:
-            r = requests.post(access_token_url, json={"appKey": self.dingtalk_key, "appSecret": self.dingtalk_secret})
-        except:
-            raise Exception("DingTalk token获取失败!!!")
-
-        data = json.loads(r.content)
-        access_token = data['accessToken']
-        expire_in = data['expireIn']
-        
-        self.access_token = access_token
-        self.expire_at = int(expire_in) + time.time()
-
-        return self.access_token
-    
-    def get_token(self):
-        if self.access_token is None or self.expire_at <= time.time():
-            self.get_token_internal()
-        
-        return self.access_token
-    
     def get_post_url(self, data):
         type = data['conversationType']
         if type == "1":
@@ -119,7 +84,7 @@ class DingTalkHandler():
         img_match_prefix = functions.check_prefix(
             prompt, channel_conf_val(const.DINGTALK, 'image_create_prefix'))
         nick = data['senderNick']
-        staffid = data['senderStaffId']
+        staffid = data.get('senderId',"")
         robot_code = data['robotCode']
         if img_match_prefix and isinstance(reply, list):
             images = ""
@@ -166,8 +131,8 @@ class DingTalkHandler():
         img_match_prefix = functions.check_prefix(
             prompt, channel_conf_val(const.DINGTALK, 'image_create_prefix'))
         nick = data['senderNick']
-        staffid = data['senderStaffId']
         robotCode = data['robotCode']
+        reply="@"+ data.get('senderNick',"") + " " +data["text"]["content"] +"\n————————————————\n" +reply
         if img_match_prefix and isinstance(reply, list):
             images = ""
             for url in reply:
@@ -179,12 +144,6 @@ class DingTalkHandler():
                     "title": "IMAGE @" + nick + " ", 
                     "text": images + " \n " + "@" + nick
                 },
-                "at": {
-                    "atUserIds": [
-                        staffid
-                    ],
-                    "isAtAll": False
-                }
             }
         else:
             resp = {
@@ -192,12 +151,6 @@ class DingTalkHandler():
                 "text": {
                     "content": reply
                 },
-                "at": {
-                    "atUserIds": [
-                       staffid 
-                    ],
-                    "isAtAll": False
-                }
             }
         return resp
     
@@ -210,7 +163,10 @@ class DingTalkHandler():
         else:
             # group的不清楚怎么@，先用webhook调用
             reply_json = self.build_webhook_response(reply, data)
-            self.notify_dingtalk_webhook(reply_json)
+            log.info(f"data:{data}")
+            log.info(f"reply_json:{reply_json}")
+            webhook_url = data["sessionWebhook"]
+            self.notify_dingtalk_webhook(webhook_url,reply_json)
         
 
     def notify_dingtalk(self, data, reply_json):
@@ -283,10 +239,7 @@ def chat():
         if 'conversationTitle' in data:
             group_name = data['conversationTitle']
         handler = handlers.get(group_name, handlers.get(code, handlers.get('DEFAULT')))
-        if handler.dingtalk_post_token and token != handler.dingtalk_post_token:
-            return {'ret': 203}
         handler.chat(dd, data)
         return {'ret': 200}
     
     return {'ret': 201}
-
