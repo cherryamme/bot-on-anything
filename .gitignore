@@ -12,3 +12,4 @@ logs/
 session.token
 .vscode
 itchat.pkl
+log
