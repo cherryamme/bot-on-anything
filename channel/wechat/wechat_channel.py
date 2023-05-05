@@ -20,7 +20,7 @@ from common.sensitive_word import SensitiveWord
 import io
 
 
-thread_pool = ThreadPoolExecutor(max_workers=8)
+thread_pool = ThreadPoolExecutor(max_workers=1)
 sw = SensitiveWord()
 
 @itchat.msg_register(TEXT)
