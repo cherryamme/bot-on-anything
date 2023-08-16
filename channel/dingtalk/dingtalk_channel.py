@@ -124,10 +124,11 @@ class DingTalkHandler():
         return resp
     
     
-    def build_webhook_response(self, reply, data):
+    def build_group_response(self, reply, data):
         conversation_id = data['conversationId']
         prompt = data['text']['content']
         prompt = prompt.strip()
+        ## img的可以删除 ，暂时先保留吧
         img_match_prefix = functions.check_prefix(
             prompt, channel_conf_val(const.DINGTALK, 'image_create_prefix'))
         nick = data['senderNick']
@@ -153,16 +154,50 @@ class DingTalkHandler():
                 },
             }
         return resp
+    def build_user_response(self, reply, data):
+        conversation_id = data['conversationId']
+        prompt = data['text']['content']
+        prompt = prompt.strip()
+        img_match_prefix = functions.check_prefix(
+            prompt, channel_conf_val(const.DINGTALK, 'image_create_prefix'))
+        nick = data['senderNick']
+        robotCode = data['robotCode']
+        reply=reply
+        if img_match_prefix and isinstance(reply, list):
+            images = ""
+            for url in reply:
+                images += f"!['IMAGE_CREATE']({url})\n"
+            reply = images
+            resp = {
+                "msgtype": "markdown",
+                "markdown": {
+                    "title": "IMAGE @" + nick + " ", 
+                    "text": images + " \n " + "@" + nick
+                },
+            }
+        else:
+            resp = {
+                "msgtype": "text",
+                "text": {
+                    "content": reply
+                },
+            }
+        return resp
     
     def chat(self, channel, data):
         reply = channel.handle(data)
         type = data['conversationType']
         if type == "1":
-            reply_json = self.build_response(reply, data)
-            self.notify_dingtalk(data, reply_json)
+            ### 私聊为type 1
+            reply_json = self.build_user_response(reply, data)
+            log.info(f"data:{data}")
+            log.info(f"reply_json:{reply_json}")
+            webhook_url = data["sessionWebhook"]
+            self.notify_dingtalk_webhook(webhook_url,reply_json)
         else:
+            ### 群聊为type 2
             # group的不清楚怎么@，先用webhook调用
-            reply_json = self.build_webhook_response(reply, data)
+            reply_json = self.build_group_response(reply, data)
             log.info(f"data:{data}")
             log.info(f"reply_json:{reply_json}")
             webhook_url = data["sessionWebhook"]
@@ -199,11 +234,6 @@ class DingTalkChannel(Channel):
             conversation_id = data['conversationId']
             sender_id = data['senderId']
             context = dict()
-            img_match_prefix = functions.check_prefix(
-                prompt, channel_conf_val(const.DINGTALK, 'image_create_prefix'))
-            if img_match_prefix:
-                prompt = prompt.split(img_match_prefix, 1)[1].strip()
-                context['type'] = 'IMAGE_CREATE'
             id = sender_id
             context['from_user_id'] = str(id)
             reply = super().build_reply_content(prompt, context)
@@ -213,6 +243,8 @@ class DingTalkChannel(Channel):
 dd = DingTalkChannel()
 handlers = dict()
 robots = channel_conf(const.DINGTALK).get('dingtalk_robots')
+
+## 支持多个bot同时运行
 if robots and len(robots) > 0:
     for robot in robots:
         robot_config = channel_conf(const.DINGTALK).get(robot)
