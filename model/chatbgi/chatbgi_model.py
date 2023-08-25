@@ -92,7 +92,8 @@ class ChatBGIModel(Model):
             # 替换 <h4> 为换行符
             text = re.sub('<h4>', '\n', text)
             # 删除 </h4> 后的任意字符，直到遇到 <ol>
-            text = re.sub('</h4>.+?<ol>', '', text)
+            pattern = re.compile(r'</h4>.*?<ol>', re.DOTALL)
+            text = re.sub(pattern, '\n', text)
             # 替换 <li> 为破折号
             text = re.sub('<li>', '-', text)
             # 删除其他指定的HTML标签
