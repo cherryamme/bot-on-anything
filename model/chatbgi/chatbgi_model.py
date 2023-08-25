@@ -7,7 +7,7 @@ from common.log import logger as log
 import websocket
 import openai
 import time,json
-import uuid
+import uuid,re
 
 user_session = dict()
 user_model = dict()
@@ -87,12 +87,25 @@ class ChatBGIModel(Model):
         ws.connect(url="ws://localhost:8000/conv", cookie="user_auth=wechat")
         # 将查询发送到 WebSocket 服务器
         ws.send(query)
+        ## 参考更改为对话框格式
+        def remove_html_tags(text):
+            # 替换 <h4> 为换行符
+            text = re.sub('<h4>', '\n', text)
+            # 删除 </h4> 后的任意字符，直到遇到 <ol>
+            text = re.sub('</h4>.+?<ol>', '', text)
+            # 替换 <li> 为破折号
+            text = re.sub('<li>', '-', text)
+            # 删除其他指定的HTML标签
+            text = re.sub('<(\/?)(h[1-6]|ol|li)>', '', text)
+            return text
         recv_message=""
         recv_conversation_id=""
         while True:
             try:
                 response = ws.recv()
+                ##TODO 修改这块，支持机器人回复参考资料
                 recv_message = json.loads(response).get('message')
+                ref_message = json.loads(response).get('reference')
                 recv_conversation_id = json.loads(response).get('conversation_id')
                 #保存recv_conversation_id
                 Session.save_session(user_id, recv_conversation_id)
@@ -101,6 +114,7 @@ class ChatBGIModel(Model):
         if isinstance(recv_message, str) and recv_message.startswith("正在搜索"):
             return "联网搜索繁忙，请稍后再试"
         log.info("[CHATGPT] response={}".format(recv_message))
+        recv_message += remove_html_tags(ref_message)
         #保存recv_conversation_id
         return recv_message
         
